@@ -1,6 +1,18 @@
 # TCPIO
 
-## A simple TCP connection pool
+## A simple Go TCP connection pool
+
+***
+
+## Import
+
+```
+$ go get github.com/dpwgc/tcpio
+```
+
+```
+import "github.com/dpwgc/tcpio"
+```
 
 ***
 
@@ -72,3 +84,9 @@ func serverExample() {
   * `Write` tcp write
   * `Read` tcp read
   * `Finish` free the session
+
+***
+
+## Attachment
+
+![pool.png](pool.png)

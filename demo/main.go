@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/dpwgc/tcpio"
 	"net"
-	"tcpio"
 	"time"
 )
 

@@ -1,6 +1,9 @@
 package tcpio
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type Pool struct {
 	queueLen int
@@ -8,6 +11,7 @@ type Pool struct {
 	timeout  time.Duration
 	deadline time.Duration
 	router   map[string]*Queue
+	lock     sync.Mutex
 	isClose  bool
 }
 
@@ -44,12 +48,15 @@ func NewPool(options ...PoolOptions) *Pool {
 		retry:    retry,
 		timeout:  timeout,
 		deadline: deadline,
+		lock:     sync.Mutex{},
 		isClose:  false,
 	}
 }
 
 // Session get a alive session
 func (p *Pool) Session(addr string) (*Session, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	if p.router[addr] == nil {
 		p.router[addr] = newQueue(p, addr, p.queueLen)
 	}
@@ -67,6 +74,8 @@ func (p *Pool) Session(addr string) (*Session, error) {
 
 // Close shut down connection pool
 func (p *Pool) Close() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	p.isClose = true
 	for _, v := range p.router {
 		v.close()

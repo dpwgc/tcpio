@@ -2,35 +2,43 @@ package tcpio
 
 import (
 	"errors"
-	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
 type Session struct {
-	id       string
+	id       int
 	queue    *Queue
 	conn     net.Conn
+	lock     sync.Mutex
 	isAlive  bool
 	isFinish bool
 }
 
-func newSession(queue *Queue) *Session {
+func newSession(queue *Queue, id int) *Session {
 	return &Session{
-		id:       fmt.Sprintf("%s-%s-%v", queue.addr, uuidGen(), time.Now().UnixMilli()),
+		id:       id,
 		queue:    queue,
 		conn:     nil,
+		lock:     sync.Mutex{},
 		isAlive:  false,
 		isFinish: false,
 	}
 }
 
-func (s *Session) ID() string {
+func (s *Session) ID() int {
 	return s.id
+}
+
+func (s *Session) Address() string {
+	return s.queue.address
 }
 
 // Read tcp read
 func (s *Session) Read(buf []byte) (int, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if s.isFinish {
 		return 0, errors.New("session is complete")
 	}
@@ -47,6 +55,8 @@ func (s *Session) Read(buf []byte) (int, error) {
 
 // Write tcp read
 func (s *Session) Write(buf []byte) (int, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if s.isFinish {
 		return 0, errors.New("session is complete")
 	}
@@ -71,6 +81,8 @@ func (s *Session) LocalAddr() net.Addr {
 
 // Finish free the session
 func (s *Session) Finish() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if s.isFinish {
 		return errors.New("session is complete")
 	}
@@ -79,8 +91,8 @@ func (s *Session) Finish() error {
 }
 
 func (s *Session) close() {
-	_ = s.conn.Close()
 	s.isAlive = false
+	_ = s.conn.Close()
 }
 
 func (s *Session) read(buf []byte) (int, error) {

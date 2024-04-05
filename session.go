@@ -4,26 +4,25 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 )
 
 type Session struct {
-	id       int
-	queue    *Queue
-	conn     net.Conn
-	lock     sync.Mutex
-	isAlive  bool
-	isFinish bool
+	id      int
+	queue   *Queue
+	conn    *net.TCPConn
+	lock    sync.Mutex
+	isAlive bool
+	isFree  bool
 }
 
 func newSession(queue *Queue, id int) *Session {
 	return &Session{
-		id:       id,
-		queue:    queue,
-		conn:     nil,
-		lock:     sync.Mutex{},
-		isAlive:  false,
-		isFinish: false,
+		id:      id,
+		queue:   queue,
+		conn:    nil,
+		lock:    sync.Mutex{},
+		isAlive: false,
+		isFree:  false,
 	}
 }
 
@@ -39,7 +38,7 @@ func (s *Session) Address() string {
 func (s *Session) Read(buf []byte) (int, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if s.isFinish {
+	if s.isFree {
 		return 0, errors.New("session is complete")
 	}
 	var n = 0
@@ -49,6 +48,7 @@ func (s *Session) Read(buf []byte) (int, error) {
 		if err == nil {
 			break
 		}
+		err = s.init()
 	}
 	return n, err
 }
@@ -57,7 +57,7 @@ func (s *Session) Read(buf []byte) (int, error) {
 func (s *Session) Write(buf []byte) (int, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if s.isFinish {
+	if s.isFree {
 		return 0, errors.New("session is complete")
 	}
 	var n = 0
@@ -67,6 +67,7 @@ func (s *Session) Write(buf []byte) (int, error) {
 		if err == nil {
 			break
 		}
+		err = s.init()
 	}
 	return n, err
 }
@@ -79,14 +80,14 @@ func (s *Session) LocalAddr() net.Addr {
 	return s.conn.LocalAddr()
 }
 
-// Finish free the session
-func (s *Session) Finish() error {
+// Free release this connection
+func (s *Session) Free() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if s.isFinish {
+	if s.isFree {
 		return errors.New("session is complete")
 	}
-	s.isFinish = true
+	s.isFree = true
 	return s.queue.putSession(s)
 }
 
@@ -96,11 +97,6 @@ func (s *Session) close() {
 }
 
 func (s *Session) read(buf []byte) (int, error) {
-	err := s.conn.SetDeadline(time.Now().Add(s.queue.pool.deadline))
-	if err != nil {
-		s.close()
-		return 0, err
-	}
 	n, err := s.conn.Read(buf)
 	if err != nil {
 		s.close()
@@ -110,15 +106,43 @@ func (s *Session) read(buf []byte) (int, error) {
 }
 
 func (s *Session) write(buf []byte) (int, error) {
-	err := s.conn.SetDeadline(time.Now().Add(s.queue.pool.deadline))
-	if err != nil {
-		s.close()
-		return 0, err
-	}
 	n, err := s.conn.Write(buf)
 	if err != nil {
 		s.close()
 		return 0, err
 	}
 	return n, nil
+}
+
+func (s *Session) init() error {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", s.queue.address)
+	if err != nil {
+		s.isAlive = false
+		return err
+	}
+	tcpConn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		s.isAlive = false
+		return err
+	}
+	err = s.keepAlive(tcpConn)
+	if err != nil {
+		s.isAlive = false
+		return err
+	}
+	s.isAlive = true
+	s.conn = tcpConn
+	return nil
+}
+
+func (s *Session) keepAlive(tcpConn *net.TCPConn) error {
+	err := tcpConn.SetKeepAlive(true)
+	if err != nil {
+		return err
+	}
+	err = tcpConn.SetKeepAlivePeriod(s.queue.pool.timeout)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -42,8 +42,8 @@ func clientExample() {
 	// print response message
 	fmt.Println("response:", string(response[:n]))
 
-	// free the session
-	_ = session.Finish()
+	// release this connection
+	_ = session.Free()
 }
 ```
 
@@ -83,7 +83,7 @@ func serverExample() {
 * session
   * `Write` tcp write
   * `Read` tcp read
-  * `Finish` free the session
+  * `Free` release this connection
 
 ***
 

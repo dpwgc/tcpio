@@ -9,7 +9,6 @@ type Pool struct {
 	queueLen int
 	retry    int
 	timeout  time.Duration
-	deadline time.Duration
 	router   map[string]*Queue
 	lock     sync.Mutex
 	isClose  bool
@@ -19,15 +18,13 @@ type PoolOptions struct {
 	QueueLen int
 	Retry    int
 	Timeout  time.Duration
-	Deadline time.Duration
 }
 
 // NewPool create a new connection pool
 func NewPool(options ...PoolOptions) *Pool {
 	queueLen := 100
 	retry := 3
-	timeout := time.Second * 30
-	deadline := time.Minute * 5
+	timeout := time.Minute * 5
 	for _, v := range options {
 		if v.QueueLen > 0 {
 			queueLen = v.QueueLen
@@ -38,16 +35,12 @@ func NewPool(options ...PoolOptions) *Pool {
 		if v.Timeout.Milliseconds() > 0 {
 			timeout = v.Timeout
 		}
-		if v.Deadline.Milliseconds() > 0 {
-			deadline = v.Deadline
-		}
 	}
 	return &Pool{
 		router:   make(map[string]*Queue),
 		queueLen: queueLen,
 		retry:    retry,
 		timeout:  timeout,
-		deadline: deadline,
 		lock:     sync.Mutex{},
 		isClose:  false,
 	}
@@ -60,16 +53,12 @@ func (p *Pool) Session(addr string) (*Session, error) {
 	if p.router[addr] == nil {
 		p.router[addr] = newQueue(p, addr, p.queueLen)
 	}
-	var err error = nil
-	var session *Session = nil
-	for i := 0; i <= p.retry; i++ {
-		session, err = p.router[addr].popSession()
-		if err == nil {
-			break
-		}
+	session, err := p.router[addr].popSession()
+	if err != nil {
+		return nil, err
 	}
-	session.isFinish = false
-	return session, err
+	session.isFree = false
+	return session, nil
 }
 
 // Close shut down connection pool

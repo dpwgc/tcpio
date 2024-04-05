@@ -1,16 +1,22 @@
 package tcpio
 
-import "net"
+import (
+	"net"
+)
 
-type HandleFunc func(conn net.Conn, err error)
+type HandleFunc func(conn *net.TCPConn, err error)
 
 // Listen start tcp listening
 func Listen(address string, handleFunc HandleFunc) error {
-	listen, err := net.Listen("tcp", address)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return err
+	}
+	listen, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		return err
 	}
 	for {
-		go handleFunc(listen.Accept())
+		go handleFunc(listen.AcceptTCP())
 	}
 }

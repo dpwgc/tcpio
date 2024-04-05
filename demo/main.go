@@ -23,6 +23,8 @@ func main() {
 		panic(err)
 	}
 
+	time.Sleep(1 * time.Second)
+
 	err = useSession(pool, "0.0.0.0:8081", "hello world session 2")
 	if err != nil {
 		panic(err)
@@ -34,7 +36,7 @@ func useSession(pool *tcpio.Pool, addr, text string) error {
 	if err != nil {
 		return err
 	}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)
 		fmt.Println("session id:", session.ID(), "| write:", text)
 		_, err = session.Write([]byte(text))
@@ -42,7 +44,7 @@ func useSession(pool *tcpio.Pool, addr, text string) error {
 			return err
 		}
 	}
-	err = session.Finish()
+	err = session.Free()
 	if err != nil {
 		return err
 	}
@@ -56,7 +58,7 @@ func server() {
 	}
 }
 
-func handleFunc(conn net.Conn, err error) {
+func handleFunc(conn *net.TCPConn, err error) {
 	if err != nil {
 		panic(err)
 	}

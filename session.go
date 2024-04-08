@@ -125,24 +125,7 @@ func (s *Session) init() error {
 		s.isAlive = false
 		return err
 	}
-	err = s.keepAlive(tcpConn)
-	if err != nil {
-		s.isAlive = false
-		return err
-	}
 	s.isAlive = true
 	s.conn = tcpConn
-	return nil
-}
-
-func (s *Session) keepAlive(tcpConn *net.TCPConn) error {
-	err := tcpConn.SetKeepAlive(true)
-	if err != nil {
-		return err
-	}
-	err = tcpConn.SetKeepAlivePeriod(s.queue.pool.timeout)
-	if err != nil {
-		return err
-	}
 	return nil
 }

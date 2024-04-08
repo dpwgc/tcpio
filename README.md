@@ -56,7 +56,7 @@ func clientExample() {
 func serverExample() {
 
 	// start tcp listening
-	_ = tcpio.Listen("0.0.0.0:8081", func(conn net.Conn, err error) {
+	_ = tcpio.Listen("0.0.0.0:8081", func(conn *net.TCPConn, err error) {
 
 		// read request message
 		var request [1024]byte

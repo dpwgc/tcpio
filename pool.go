@@ -2,13 +2,11 @@ package tcpio
 
 import (
 	"sync"
-	"time"
 )
 
 type Pool struct {
 	queueLen int
 	retry    int
-	timeout  time.Duration
 	router   map[string]*Queue
 	lock     sync.Mutex
 	isClose  bool
@@ -17,14 +15,12 @@ type Pool struct {
 type PoolOptions struct {
 	QueueLen int
 	Retry    int
-	Timeout  time.Duration
 }
 
 // NewPool create a new connection pool
 func NewPool(options ...PoolOptions) *Pool {
 	queueLen := 100
 	retry := 3
-	timeout := time.Minute * 5
 	for _, v := range options {
 		if v.QueueLen > 0 {
 			queueLen = v.QueueLen
@@ -32,15 +28,11 @@ func NewPool(options ...PoolOptions) *Pool {
 		if v.Retry > 0 {
 			retry = v.Retry
 		}
-		if v.Timeout.Milliseconds() > 0 {
-			timeout = v.Timeout
-		}
 	}
 	return &Pool{
 		router:   make(map[string]*Queue),
 		queueLen: queueLen,
 		retry:    retry,
-		timeout:  timeout,
 		lock:     sync.Mutex{},
 		isClose:  false,
 	}
